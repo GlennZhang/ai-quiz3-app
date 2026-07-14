@@ -1,0 +1,12 @@
+{
+  "name": "quiz-app",
+  "version": "1.0.0",
+  "description": "人工智能训练师（三级）· 理论刷题应用（自包含单文件 Web 应用 + jsdom 测试）",
+  "private": true,
+  "scripts": {
+    "test": "for f in test/*.test.js; do echo \"### $f\"; node \"$f\" || exit 1; done"
+  },
+  "dependencies": {
+    "jsdom": "^29.1.1"
+  }
+}
