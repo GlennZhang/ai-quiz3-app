@@ -365,6 +365,7 @@
     </div>
     <div class="pillbar" style="margin-bottom:14px">
       <button class="btn primary sm" id="wbPractice">练习这些错题</button>
+      <button class="btn ghost sm" id="wbExport">📋 导出错题</button>
       <button class="btn ghost sm" id="wbClear">清空错题本</button>
     </div>
     <div class="wlist" id="wbList"></div>
@@ -1022,6 +1023,32 @@ function renderWrong(){
   list.querySelectorAll('[data-rm]').forEach(b=>b.onclick=()=>{ delete S.wrong[b.dataset.rm]; save(); renderWrong(); renderHome(); toast('已移出错题本') });
   document.getElementById('wbPractice').onclick=()=>startSession('wrong');
   document.getElementById('wbClear').onclick=()=>{ if(confirm('清空整个错题本？')){ S.wrong={}; save(); renderWrong(); renderHome(); toast('错题本已清空') } };
+  const wbe=document.getElementById('wbExport');
+  if(wbe){ wbe.textContent='📋 导出错题'; wbe.style.display=''; wbe.onclick=exportWrong; }
+}
+/* 导出错题为文本（复制剪贴板，失败则下载文件），方便发给他人分析 */
+function exportWrong(){
+  const entries=Object.entries(S.wrong).sort((a,b)=>(b[1].count||0)-(a[1].count||0));
+  if(!entries.length){ toast('错题本是空的'); return; }
+  const rightC=Object.keys(S.right).length, wrongC=entries.length, done=rightC+wrongC;
+  const kstat={}; KNOW_CODES.forEach(k=>kstat[k]=0);
+  entries.forEach(([uid])=>{ const q=QMAP[uid]; if(q&&kstat[q.knowledge]!==undefined) kstat[q.knowledge]++; });
+  let txt='错题本导出 · 共 '+wrongC+' 题 · '+new Date().toLocaleString('zh-CN')+'\n';
+  txt+='统计：已练习 '+done+' / 已掌握 '+rightC+' / 掌握率 '+(done?Math.round(rightC/done*100):0)+'% / 错题 '+wrongC+'\n';
+  txt+='错题知识点分布：'+KNOW_CODES.filter(k=>kstat[k]).map(k=>KNOW_LABELS[k]+' '+kstat[k]).join('、')+'\n\n';
+  entries.forEach(([uid,w],i)=>{
+    const q=QMAP[uid]; if(!q) return;
+    txt+=(i+1)+'. ['+q.typeLabel+' #'+q.id+'] (错'+(w.count||0)+'次) '+KNOW_LABELS[q.knowledge]+'\n';
+    txt+='   题干：'+q.stem.replace(/\s+/g,' ')+'\n';
+    txt+='   正确答案：'+(q.type==='multi'?q.answer.join(''):q.answer)+'\n\n';
+  });
+  copyOrDownload(txt, '错题本.txt', '已复制 '+wrongC+' 道错题到剪贴板，可粘贴给我');
+}
+function copyOrDownload(text, filename, okMsg){
+  const done=()=>toast(okMsg);
+  const fallback=()=>{ try{ const blob=new Blob([text],{type:'text/plain;charset=utf-8'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); toast('已下载 '+filename+'，打开复制内容发给我'); }catch(e){ toast('导出失败'); } };
+  if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done).catch(fallback); }
+  else { try{ const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); const ok=document.execCommand('copy'); ta.remove(); if(ok) done(); else fallback(); }catch(e){ fallback(); } }
 }
 function renderFav(){
   show('wrong');
@@ -1029,6 +1056,7 @@ function renderFav(){
   document.getElementById('wbH2').textContent='收藏本';
   document.getElementById('wbPractice').textContent='练习这些收藏题';
   document.getElementById('wbClear').textContent='清空收藏';
+  const wbe=document.getElementById('wbExport'); if(wbe) wbe.style.display='none';   // 收藏本不显示导出错题
   const entries=Object.entries(S.fav).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0));
   document.getElementById('wbCount').textContent='共 '+entries.length+' 题';
   const list=document.getElementById('wbList');
