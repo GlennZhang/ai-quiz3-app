@@ -287,6 +287,9 @@
         <button class="card mode" data-start="fav" id="modeFav">
           <div class="ico all" style="color:#e0a800">★</div><div class="meta"><b>收藏题练习</b><span id="favSub">暂无收藏</span></div><div class="arr">›</div>
         </button>
+        <button class="card mode" data-start="daily" id="modeDaily">
+          <div class="ico all" style="color:#10b981">📅</div><div class="meta"><b>每日一练</b><span id="dailySub">按考纲随机抽20题</span></div><div class="arr">›</div>
+        </button>
       </div>
       <button class="card mode exam-entry" id="goExam" style="margin-top:12px;width:100%">
         <div class="ico all" style="color:#7c3aed">📝</div><div class="meta"><b>模拟考试</b><span id="examSub">按考纲随机组卷 · 考试/练习两种模式</span></div><div class="arr">›</div>
@@ -533,6 +536,10 @@ function renderHome(){
   const mf=document.getElementById('modeFav');
   if(fc){ fs.textContent=fc+' 道收藏题'; mf.classList.remove('disabled') }
   else{ fs.textContent='暂无收藏'; mf.classList.add('disabled') }
+  // 每日一练卡片副标题
+  const dailyTotal=Object.keys(S.wrong).length||0;
+  const ds=document.getElementById('dailySub');
+  if(ds) ds.textContent = dailyTotal>0 ? (dailyTotal+' 道错题可练习') : '按考纲随机抽20题';
   renderResumeCard();
   // 考试记录卡片副标题
   const exams=S.exams||[];
@@ -569,9 +576,36 @@ function buildList(mode){
   if(mode==='all') list=Q.map(q=>q.uid);
   else if(mode==='wrong') list=Object.keys(S.wrong);
   else if(mode==='fav') list=Object.keys(S.fav).sort((a,b)=>(S.fav[b].ts||0)-(S.fav[a].ts||0));
+  else if(mode==='daily') list=buildDaily();
   else list=Q.filter(q=>q.type===mode).map(q=>q.uid);
-  if(cfg.shuffle) for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}
+  if(cfg.shuffle && mode!=='daily') for(let i=list.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[list[i],list[j]]=[list[j],list[i]]}
   return list;
+}
+
+/* ---------- 每日一练 ---------- */
+// 每日一练配置：按考试比例抽取20题
+const DAILY_CFG={
+  structure:{judge:6,single:8,multi:6},  // 各题型题量（共20题）
+  knowRatio:EXAM_DEFAULT.knowRatio        // 知识点比例与考试相同
+};
+// 组卷：返回 uid 列表（按 judge→single→multi 顺序）
+function buildDaily(){
+  const list=[];
+  for(const type of ['judge','single','multi']){
+    const need=DAILY_CFG.structure[type]||0; if(!need) continue;
+    const all=Q.filter(q=>q.type===type);
+    const buckets={}; KNOW_CODES.forEach(k=>buckets[k]=all.filter(q=>q.knowledge===k).map(q=>q.uid));
+    const alloc=allocateByRatio(need, DAILY_CFG.knowRatio, buckets);
+    const picked=[];
+    KNOW_CODES.forEach(k=>picked.push(...pickPreferUndone(buckets[k], alloc[k])));
+    if(picked.length<need){   // 知识点桶不足，从该题型剩余任意补
+      const used=new Set(picked);
+      const rest=all.filter(q=>!used.has(q.uid)).map(q=>q.uid);
+      picked.push(...pickPreferUndone(rest, need-picked.length));
+    }
+    list.push(...picked.slice(0,need));
+  }
+  return shuffleArr(list);  // 每日一练随机顺序
 }
 
 /* ---------- 模拟考试：知识点 + 考纲 + 组卷 ---------- */
@@ -652,7 +686,7 @@ function startSession(mode, opts){
   opts = opts || {};
   let list=buildList(mode);
   if(!list.length){ toast(mode==='wrong'?'错题本是空的':(mode==='fav'?'还没有收藏的题目':'没有题目')); return }
-  const names={all:'全部练习',wrong:'错题练习',fav:'收藏题练习',judge:'判断题',single:'单选题',multi:'多选题'};
+  const names={all:'全部练习',wrong:'错题练习',fav:'收藏题练习',judge:'判断题',single:'单选题',multi:'多选题',daily:'每日一练'};
   const title=names[mode]||'练习';
 
   // 顺序模式：基于全局记录(S.right/S.wrong)检测进度，选择"继续 / 重新"
