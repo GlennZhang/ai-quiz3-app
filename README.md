@@ -8,6 +8,37 @@
 
 > `index.html` 是自包含的（题目数据已嵌入），单独拷贝这一个文件就能用。`questions.json` 是结构化数据源，可作为备份/二次编辑用。
 
+## 界面预览
+
+### 首页 - 所有功能一览
+
+![首页](screenshots/home.png)
+
+### 每日一练 - 智能组卷
+
+![每日一练](screenshots/daily-practice.png)
+
+按考纲随机抽取20题，优先错题和收藏题，帮助巩固薄弱知识点。
+
+### 模拟考试 - 真实考场体验
+
+![模拟考试](screenshots/exam-config.png)
+
+按考纲自动组卷，支持考试模式（计时、交卷批改）和练习模式（即时反馈）。
+
+### 练习界面 - 清晰易用
+
+![判断题](screenshots/quiz-judge.png)
+![单选题](screenshots/quiz-single.png)
+
+支持快捷键答题，自动保存进度，即时显示答案和解析。
+
+### 错题本 - 重点突破
+
+![错题本](screenshots/wrong-book.png)
+
+记录每道错题的做错次数，按次数排序，支持单题查看/移除/清空。
+
 ## 功能
 
 | 功能 | 说明 |
