@@ -288,7 +288,7 @@
           <div class="ico all" style="color:#e0a800">★</div><div class="meta"><b>收藏题练习</b><span id="favSub">暂无收藏</span></div><div class="arr">›</div>
         </button>
         <button class="card mode" data-start="daily" id="modeDaily">
-          <div class="ico all" style="color:#10b981">📅</div><div class="meta"><b>每日一练</b><span id="dailySub">按考纲随机抽20题</span></div><div class="arr">›</div>
+          <div class="ico all" style="color:#10b981">📅</div><div class="meta"><b>每日一练</b><span id="dailySub">错题+收藏优先 · 按考纲抽20题</span></div><div class="arr">›</div>
         </button>
       </div>
       <button class="card mode exam-entry" id="goExam" style="margin-top:12px;width:100%">
@@ -537,9 +537,15 @@ function renderHome(){
   if(fc){ fs.textContent=fc+' 道收藏题'; mf.classList.remove('disabled') }
   else{ fs.textContent='暂无收藏'; mf.classList.add('disabled') }
   // 每日一练卡片副标题
-  const dailyTotal=Object.keys(S.wrong).length||0;
+  const wrongC=Object.keys(S.wrong).length;
+  const favC=Object.keys(S.fav).length;
   const ds=document.getElementById('dailySub');
-  if(ds) ds.textContent = dailyTotal>0 ? (dailyTotal+' 道错题可练习') : '按考纲随机抽20题';
+  if(ds){
+    const parts=[];
+    if(wrongC) parts.push(wrongC+'道错题');
+    if(favC) parts.push(favC+'道收藏');
+    ds.textContent = parts.length ? (parts.join('·')+'优先') : '按考纲抽20题';
+  }
   renderResumeCard();
   // 考试记录卡片副标题
   const exams=S.exams||[];
@@ -589,23 +595,60 @@ const DAILY_CFG={
   knowRatio:EXAM_DEFAULT.knowRatio        // 知识点比例与考试相同
 };
 // 组卷：返回 uid 列表（按 judge→single→multi 顺序）
+// 优先级：错题 > 收藏题 > 未做题 > 已做对的题
 function buildDaily(){
   const list=[];
   for(const type of ['judge','single','multi']){
     const need=DAILY_CFG.structure[type]||0; if(!need) continue;
     const all=Q.filter(q=>q.type===type);
-    const buckets={}; KNOW_CODES.forEach(k=>buckets[k]=all.filter(q=>q.knowledge===k).map(q=>q.uid));
+
+    // 按知识点分桶，每个桶内按优先级排序
+    const buckets={}; KNOW_CODES.forEach(k=>{
+      const byKn=all.filter(q=>q.knowledge===k);
+      // 优先级排序：错题 > 收藏题 > 未做题 > 已做对
+      buckets[k]=byKn.sort((a,b)=>{
+        const aWrong=S.wrong[a.uid]?1:0, bWrong=S.wrong[b.uid]?1:0;
+        const aFav=S.fav[a.uid]?1:0, bFav=S.fav[b.uid]?1:0;
+        const aDone=S.right[a.uid]?1:0, bDone=S.right[b.uid]?1:0;
+        const aUndone=(!aDone&&!aWrong)?1:0, bUndone=(!bDone&&!bWrong)?1:0;
+
+        // 错题优先
+        if(aWrong&&!bWrong) return -1;
+        if(!aWrong&&bWrong) return 1;
+        // 收藏题次优先
+        if(aFav&&!bFav) return -1;
+        if(!aFav&&bFav) return 1;
+        // 未做题优先于已做对
+        if(aUndone&&!bUndone) return -1;
+        if(!aUndone&&bUndone) return 1;
+        // 同优先级随机
+        return Math.random()-0.5;
+      }).map(q=>q.uid);
+    });
+
     const alloc=allocateByRatio(need, DAILY_CFG.knowRatio, buckets);
     const picked=[];
-    KNOW_CODES.forEach(k=>picked.push(...pickPreferUndone(buckets[k], alloc[k])));
+    KNOW_CODES.forEach(k=>picked.push(...buckets[k].slice(0,alloc[k])));
+
     if(picked.length<need){   // 知识点桶不足，从该题型剩余任意补
       const used=new Set(picked);
       const rest=all.filter(q=>!used.has(q.uid)).map(q=>q.uid);
-      picked.push(...pickPreferUndone(rest, need-picked.length));
+      // 剩余题目也按优先级排序
+      rest.sort((a,b)=>{
+        const aWrong=S.wrong[a]?1:0, bWrong=S.wrong[b]?1:0;
+        const aFav=S.fav[a]?1:0, bFav=S.fav[b]?1:0;
+        const aDone=S.right[a]?1:0, bDone=S.right[b]?1:0;
+        const aUndone=(!aDone&&!aWrong)?1:0, bUndone=(!bDone&&!bWrong)?1:0;
+        if(aWrong&&!bWrong) return -1; if(!aWrong&&bWrong) return 1;
+        if(aFav&&!bFav) return -1; if(!aFav&&bFav) return 1;
+        if(aUndone&&!bUndone) return -1; if(!aUndone&&bUndone) return 1;
+        return Math.random()-0.5;
+      });
+      picked.push(...rest.slice(0,need-picked.length));
     }
     list.push(...picked.slice(0,need));
   }
-  return shuffleArr(list);  // 每日一练随机顺序
+  return list;  // 保持 judge→single→multi 顺序
 }
 
 /* ---------- 模拟考试：知识点 + 考纲 + 组卷 ---------- */
