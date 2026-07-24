@@ -20,12 +20,22 @@
 ### 4. 配置构建设置
 由于这是一个纯静态 HTML 文件，配置非常简单：
 
-```
-Project name: ai-quiz3-app
-Production branch: main
-Build command: (留空，无需构建)
-Build output directory: / (根目录)
-```
+**在 Dashboard 中填写：**
+
+| 字段 | 值 | 说明 |
+|------|------|------|
+| **Project name** | `ai-quiz3-app` | 项目名称（会生成 pages.dev 域名） |
+| **Production branch** | `main` | 生产分支 |
+| **Build command** | `# 留空或输入: echo "No build needed"` | 无需构建，可以直接留空或输入注释 |
+| **Build output directory** | `/` | 根目录（所有文件在根目录） |
+| **Root directory** | `/` | 项目根目录 |
+| **Environment variables** | (无需设置) | 不需要环境变量 |
+
+**重要提示：**
+- **Build command** 可以完全留空，或输入 `#` 开头的注释
+- 如果系统要求必须填写，可以输入：`echo "Static HTML, no build required"`
+- **Build output directory** 必须是 `/`，因为 `index.html` 在根目录
+- 无需设置 Node.js 版本或其他环境变量
 
 ### 5. 环境变量（可选）
 无需设置任何环境变量

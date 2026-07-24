@@ -1,0 +1,11 @@
+# Cloudflare Pages 配置文件
+# 用于明确指定这是静态 HTML 项目，无需构建步骤
+
+# 构建设置
+build:
+  command: ""  # 无需构建命令
+  destination: "/"  # 输出目录为根目录
+
+# 环境变量（可选）
+env:
+  NODE_ENV: production
