@@ -14,3 +14,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Cloudflare Pages
+.pages/
+
