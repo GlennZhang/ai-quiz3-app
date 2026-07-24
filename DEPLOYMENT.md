@@ -63,6 +63,7 @@ Cloudflare Pages 免费计划包含：
 
 ## 更新部署
 
+### 方法一：通过 Git（推荐）
 每次推送代码到 GitHub `main` 分支时，Cloudflare 会自动重新部署：
 
 ```bash
@@ -71,12 +72,58 @@ git commit -m "更新功能"
 git push origin main
 ```
 
+### 方法二：使用 Wrangler CLI
+
+#### 安装 Wrangler
+```bash
+npm install -g wrangler
+```
+
+#### 登录 Cloudflare
+```bash
+wrangler login
+```
+
+#### 部署命令
+```bash
+# 部署当前目录
+wrangler pages deploy . --project-name=ai-quiz3-app
+
+# 或使用提供的脚本
+./deploy.sh
+```
+
+#### 查看部署列表
+```bash
+wrangler pages deployment list --project-name=ai-quiz3-app
+```
+
+#### 查看项目详情
+```bash
+wrangler pages project list
+```
+
 ## 本地预览
 
 在部署前，你可以直接在浏览器中打开 `index.html` 预览：
 
 ```bash
 open index.html
+```
+
+## 部署脚本
+
+项目提供了自动化部署脚本 `deploy.sh`：
+
+```bash
+# 直接运行
+./deploy.sh
+
+# 脚本会自动：
+# 1. 检查 wrangler 是否安装
+# 2. 检查登录状态
+# 3. 部署到 Cloudflare Pages
+# 4. 显示访问 URL
 ```
 
 ## 故障排除
