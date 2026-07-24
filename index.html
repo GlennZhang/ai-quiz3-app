@@ -536,8 +536,7 @@ function renderHome(){
   const mf=document.getElementById('modeFav');
   if(fc){ fs.textContent=fc+' 道收藏题'; mf.classList.remove('disabled') }
   else{ fs.textContent='暂无收藏'; mf.classList.add('disabled') }
-  // 每日一练卡片副标题
-  const wrongC=Object.keys(S.wrong).length;
+  // 每日一练卡片副标题 (reuse existing wrongC variable)
   const favC=Object.keys(S.fav).length;
   const ds=document.getElementById('dailySub');
   if(ds){
@@ -592,7 +591,7 @@ function buildList(mode){
 // 每日一练配置：按考试比例抽取20题
 const DAILY_CFG={
   structure:{judge:6,single:8,multi:6},  // 各题型题量（共20题）
-  knowRatio:EXAM_DEFAULT.knowRatio        // 知识点比例与考试相同
+  knowRatio:{ethics:15,basics:25,analysis:15,training:30,design:10,guide:5}  // 知识点比例与考试相同
 };
 // 组卷：返回 uid 列表（按 judge→single→multi 顺序）
 // 优先级：错题 > 收藏题 > 未做题 > 已做对的题
