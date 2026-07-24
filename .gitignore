@@ -18,3 +18,12 @@ Thumbs.db
 # Cloudflare Pages
 .pages/
 
+# 环境变量和敏感配置
+.env
+.env.*
+.env.local
+.env.production
+
+# Wrangler 配置（可能包含凭证）
+wrangler.toml
+
