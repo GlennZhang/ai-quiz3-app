@@ -27,3 +27,4 @@ Thumbs.db
 # Wrangler 配置（可能包含凭证）
 wrangler.toml
 
+.gstack/
