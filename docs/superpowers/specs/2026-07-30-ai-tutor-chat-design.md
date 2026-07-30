@@ -101,7 +101,7 @@ window.__AI_TUTOR_ADAPTER__ = {
 ```
 
 - 所有方法**只读**，绝不写回 `localStorage`。
-- `index.html` 与 `mock/index.html` 各自实现一个薄适配器，转发到各自的 `cfg` / 题库。`ai-tutor.js` 在初始化时若 `window.__AI_TUTOR_ADAPTER__` 缺失则禁用助教并告警。
+- `index.html` 与 `mock/index.html` 各自实现一个薄适配器，在**自身脚本作用域内直接访问全局 `S`/`Q`/`QMAP`**（均已由宿主加载完成，`S` 来自 `aitrainer_lv3_v1` / `aitrainer_newbank_v1`），**不直接读 localStorage**。`ai-tutor.js` 在初始化时若 `window.__AI_TUTOR_ADAPTER__` 缺失则禁用助教并告警。
 
 ## 6. agent-loop 算法（参考 pi）
 
@@ -165,7 +165,8 @@ async function runAgentLoop({ messages, tools, config, signal, onEvent }):
 |---|---|---|
 | `aitrainer_ai_cfg` | `{ baseUrl, apiKey, model, preset }` | 配置面板 |
 | `aitrainer_chat_session` | `{ messages: [...] }` 单一连续会话 | 引擎每轮 |
-| `aitrainer_cfg` / `aitrainer_newbank_cfg` | 现有学习数据（**只读**） | 现有应用 |
+| `aitrainer_lv3_v1` / `aitrainer_newbank_v1` | 现有学习数据 `S`（wrong/right/totalAns/...）（**只读**） | 现有应用 |
+| `aitrainer_cfg` / `aitrainer_newbank_cfg` | 现有用户偏好（shuffle/autoNext/explain）（AI 不使用） | 现有应用 |
 
 单一会话（浮动气泡不适合多会话列表）；刷新不丢；面板内「清空会话」按钮重置 `aitrainer_chat_session`。
 
