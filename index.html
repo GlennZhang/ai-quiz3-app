@@ -440,7 +440,7 @@ const TYPES=[['judge','判断题'],['single','单选题'],['multi','多选题']]
 const KEY='aitrainer_lv3_v1';
 function loadState(){
   let s;try{s=JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){s={}}
-  s.wrong=s.wrong||{};          // uid -> {count,last}
+  s.wrong=s.wrong||{};          // uid -> {count,last,streak}（streak=连续答对次数，达 STREAK_CLEAR 移除）
   s.right=s.right||{};          // uid -> true (answered right at least once)
   s.totalRight=s.totalRight||0;
   s.totalAns=s.totalAns||0;
@@ -988,15 +988,21 @@ function showFeedback(ok,q,userAns,replayMode){
     fb.innerHTML+='<div class="ex"><b>解析：</b>'+esc(q.explanation)+'</div>';
   }
 }
+// 错题需"连续答对"多少次才移出错题本（中途答错则 streak 清零重来）
+const STREAK_CLEAR=5;
 function recordResult(uid,ok,chosen){
   S.totalAns++;
   if(ok){
     S.totalRight++;
     S.right[uid]=true;
-    if(S.wrong[uid]){ delete S.wrong[uid] }
+    if(S.wrong[uid]){                          // 错题：累计连续答对，达标才移除
+      S.wrong[uid].streak=(S.wrong[uid].streak||0)+1;
+      S.wrong[uid].last=Date.now();
+      if(S.wrong[uid].streak>=STREAK_CLEAR){ delete S.wrong[uid]; }
+    }
   }else{
     const w=S.wrong[uid]||{count:0};
-    w.count=(w.count||0)+1; w.last=Date.now(); S.wrong[uid]=w;
+    w.count=(w.count||0)+1; w.last=Date.now(); w.streak=0; S.wrong[uid]=w;
     delete S.right[uid];
   }
   // record last attempt for replay (chosen is array for multi, single letter/string for single/judge)
@@ -1090,7 +1096,7 @@ function renderWrong(){
   list.innerHTML=entries.map(([uid,w])=>{
     const q=QMAP[uid];
     return '<div class="wrow"><div class="t">'+q.typeLabel+'</div>'
-      +'<div class="c"><div class="stem">'+q.id+'. '+esc(q.stem)+'</div><div class="muted">正确：'+(q.type==='multi'?q.answer.join(''):q.answer)+'</div></div>'
+      +'<div class="c"><div class="stem">'+q.id+'. '+esc(q.stem)+'</div><div class="muted">正确：'+(q.type==='multi'?q.answer.join(''):q.answer)+' · 再连续答对 '+(STREAK_CLEAR-(w.streak||0))+' 次移除</div></div>'
       +'<div class="cnt">错'+w.count+'</div>'
       +'<button class="rm" data-open="'+uid+'" title="查看">›</button>'
       +'<button class="rm" data-rm="'+uid+'" title="移除">✕</button></div>';
