@@ -1497,5 +1497,15 @@ show('home');
   </div>
 </footer>
 
+<!-- AI 助教（浮动气泡）：暴露本页学习数据，由 ai-tutor.js 自启
+     注意外部 src 在前、内联在后：defer 脚本在文档解析后执行 boot()，
+     内联脚本在解析期同步设置 __AI_TUTOR_DATA__，保证 boot 先取到数据；
+     同时使本页最后一个 </script> 仍属于内联脚本，兼容既有测试
+     的 lastIndexOf('</script>') 注入约定。 -->
+<script src="ai-tutor.js" defer></script>
+<script>
+  window.__AI_TUTOR_DATA__ = { S: S, Q: Q, QMAP: QMAP };
+</script>
+
 </body>
 </html>
