@@ -164,8 +164,58 @@
     catch(e){ return { error: String((e && e.message) || e) }; }
   }
 
+  /* ============ agent-loop（参考 pi runLoop） ============ */
+  const MAX_TURNS_DEFAULT = 8;
+  async function runAgentLoop(opts){
+    const messages = (opts.messages || []).slice();
+    const adapter = opts.adapter;
+    const onEvent = opts.onEvent || (()=>{});
+    const maxTurns = opts.maxTurns || MAX_TURNS_DEFAULT;
+    const fetchFn = opts.fetchFn;
+    for(let turn=0; turn<maxTurns; turn++){
+      const acc = newAccumulator();
+      try{
+        for await(const chunk of streamChat({
+          baseUrl: opts.config.baseUrl, apiKey: opts.config.apiKey, model: opts.config.model,
+          messages, tools: TOOLS, signal: opts.signal, fetchFn
+        })){
+          const choice = chunk && chunk.choices && chunk.choices[0];
+          if(!choice) continue;
+          if(choice.delta && typeof choice.delta.content === 'string' && choice.delta.content){
+            onEvent({ type:'text_delta', text: choice.delta.content });
+          }
+          applyDelta(acc, chunk);
+        }
+      }catch(e){
+        if(e && e.name === 'AbortError'){ onEvent({ type:'aborted' }); return messages; }
+        onEvent({ type:'error', message: String((e && e.message) || e) });
+        return messages;
+      }
+      const assistant = finalizeAssistant(acc);
+      messages.push(assistant);
+      onEvent({ type:'assistant', message: assistant });
+      const toolCalls = assistant.tool_calls;
+      if(!toolCalls || !toolCalls.length){ onEvent({ type:'done' }); return messages; }
+      if(assistant.finish_reason === 'length'){
+        for(const tc of toolCalls){
+          messages.push({ role:'tool', tool_call_id: tc.id, content: JSON.stringify({ error:'输出被 token 上限截断，工具参数可能不完整，请重新发起该工具调用' }) });
+        }
+        onEvent({ type:'length_truncated' });
+        continue;
+      }
+      for(const tc of toolCalls){
+        onEvent({ type:'tool_call', name: tc.function.name, args: tc.function.arguments });
+        const result = dispatchTool(tc, adapter);
+        messages.push({ role:'tool', tool_call_id: tc.id, content: JSON.stringify(result) });
+        onEvent({ type:'tool_result', name: tc.function.name, result });
+      }
+    }
+    onEvent({ type:'max_turns' });
+    return messages;
+  }
+
   /* ============ 公开接口（后续 Task 追加） ============ */
-  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat, TOOLS, dispatchTool };
+  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat, TOOLS, dispatchTool, runAgentLoop };
 
   window.AiTutor = AiTutor;
 
