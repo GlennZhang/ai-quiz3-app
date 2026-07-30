@@ -135,8 +135,37 @@
     }
   }
 
+  /* ============ TOOLS ============ */
+  const TOOLS = [
+    { type:'function', function:{ name:'get_progress_stats', description:'获取该用户的学习进度总览：总题数、累计答题数、累计答对数、当前错题数、各题型（判断/单选/多选）的总量/已做/掌握/错题数。无需参数。',
+      parameters:{ type:'object', properties:{}, required:[] } } },
+    { type:'function', function:{ name:'get_wrong_questions', description:'获取当前错题列表（按错误次数倒序）。返回每题的 uid、题型、题干、选项、正确答案、解析、错误次数、巩固连续答对次数（达5次会被移除）。',
+      parameters:{ type:'object',
+        properties:{ limit:{ type:'integer', description:'返回条数，默认10，上限30', default:10 }, type:{ type:'string', enum:['judge','single','multi'], description:'可选，仅返回某题型' } },
+        required:[] } } },
+    { type:'function', function:{ name:'get_question', description:'按 uid 获取单题完整详情（题型、题干、选项、答案、解析），用于讲解某道题。',
+      parameters:{ type:'object', properties:{ uid:{ type:'string' } }, required:['uid'] } } },
+    { type:'function', function:{ name:'search_questions', description:'按关键词在题库题干中检索题目（返回 uid、题型、题干片段）。',
+      parameters:{ type:'object', properties:{ keyword:{ type:'string' }, limit:{ type:'integer', default:10 } }, required:['keyword'] } } }
+  ];
+  const TOOLS_BY_NAME = {}; TOOLS.forEach(t=>TOOLS_BY_NAME[t.function.name] = t);
+  const TOOL_RUNNERS = {
+    get_progress_stats: (args, ad)=> ad.getProgressStats(),
+    get_wrong_questions: (args, ad)=> ad.getWrongQuestions(args || {}),
+    get_question:        (args, ad)=> { const q = ad.getQuestion(args && args.uid); return q || { error:'未找到该题目: '+(args&&args.uid) }; },
+    search_questions:    (args, ad)=> ad.searchQuestions(args && args.keyword, args && args.limit)
+  };
+  function dispatchTool(toolCall, adapter){
+    const name = toolCall && toolCall.function && toolCall.function.name;
+    let args = {};
+    try { args = JSON.parse((toolCall.function.arguments) || '{}'); } catch(e){ args = {}; }
+    if(!TOOLS_BY_NAME[name]) return { error: '未知工具: ' + name };
+    try { return TOOL_RUNNERS[name](args, adapter); }
+    catch(e){ return { error: String((e && e.message) || e) }; }
+  }
+
   /* ============ 公开接口（后续 Task 追加） ============ */
-  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat };
+  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat, TOOLS, dispatchTool };
 
   window.AiTutor = AiTutor;
 
