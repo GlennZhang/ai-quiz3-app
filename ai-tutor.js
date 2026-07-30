@@ -103,8 +103,40 @@
     };
   }
 
+  /* ============ LLM 客户端（OpenAI 兼容 /v1/chat/completions，SSE 流式） ============ */
+  async function* streamChat(opts){
+    const baseUrl = (opts.baseUrl || '').replace(/\/+$/, '');
+    const url = baseUrl + '/chat/completions';
+    const headers = { 'Content-Type':'application/json' };
+    if(opts.apiKey) headers['Authorization'] = 'Bearer ' + opts.apiKey;
+    const body = { model: opts.model, messages: opts.messages, stream: true };
+    if(opts.tools && opts.tools.length) body.tools = opts.tools;
+    const fetchFn = opts.fetchFn || (typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null);
+    if(!fetchFn) throw new Error('当前环境无 fetch');
+    const resp = await fetchFn(url, { method:'POST', headers, body: JSON.stringify(body), signal: opts.signal });
+    if(!resp || !resp.ok) throw new Error('LLM 请求失败: HTTP ' + (resp ? resp.status : '(无响应)'));
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+    while(true){
+      const { done, value } = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, { stream:true });
+      let nl;
+      while((nl = buf.indexOf('\n')) >= 0){
+        let line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+        line = line.replace(/\r$/, '');
+        if(line.indexOf('data:') !== 0) continue;
+        const data = line.slice(5).trim();
+        if(!data) continue;
+        if(data === '[DONE]') return;
+        try { yield JSON.parse(data); } catch(e){ /* 跳过非 JSON 行 */ }
+      }
+    }
+  }
+
   /* ============ 公开接口（后续 Task 追加） ============ */
-  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant };
+  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat };
 
   window.AiTutor = AiTutor;
 
