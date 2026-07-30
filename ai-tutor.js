@@ -326,16 +326,16 @@
     messages.forEach(m=>{
       if(m.role==='user') body.appendChild(el('div','ait-msg ait-msg-user', escapeHtml(m.content)));
       else if(m.role==='assistant' && m.content) body.appendChild(el('div','ait-msg ait-msg-ai', escapeHtml(m.content)));
-      else if(m.role==='tool') body.appendChild(el('div','ait-tool', '🛠 已查询：' + escapeHtml(m.name || '')));
+      else if(m.role==='tool') body.appendChild(el('div','ait-tool', '🛠 已查询题目数据'));
     });
     body.scrollTop = body.scrollHeight;
   }
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
   async function send(){
+    const body = document.getElementById('ait-body');
     const cfg = getConfig();
     const data = window.__AI_TUTOR_DATA__;
     if(!cfg.baseUrl || !cfg.model || !data){
-      const body = document.getElementById('ait-body');
       body.appendChild(el('div','ait-msg ait-msg-system', data ? '请先点⚙配置模型（Base URL / 模型名）' : '数据未就绪，助教不可用'));
       return;
     }
@@ -346,7 +346,6 @@
     if(!messages.some(m=>m.role==='system')) messages.unshift({ role:'system', content: SYSTEM_PROMPT });
     messages.push({ role:'user', content: text });
     saveSession(messages);
-    const body = document.getElementById('ait-body');
     body.appendChild(el('div','ait-msg ait-msg-user', escapeHtml(text)));
     const aiBubble = el('div','ait-msg ait-msg-ai', ''); body.appendChild(aiBubble);
     const toolLine = el('div','ait-tool',''); body.appendChild(toolLine);
@@ -366,6 +365,9 @@
           else if(ev.type==='aborted'){ aiBubble.textContent = (aiText||'') + '\n（已停止）'; }
         }
       });
+      if(aiText && messages[messages.length-1] && messages[messages.length-1].role !== 'assistant'){
+        messages.push({ role:'assistant', content: aiText });
+      }
       saveSession(messages);
     }finally{
       document.getElementById('ait-send').textContent = '发送';
@@ -374,7 +376,7 @@
     }
   }
   document.addEventListener('click', (e)=>{
-    if(e.target && e.target.id==='ait-send' && abortCtrl){ e.preventDefault(); abortCtrl.abort(); }
+    if(e.target && e.target.id==='ait-send' && abortCtrl){ e.stopImmediatePropagation(); abortCtrl.abort(); }
   }, true);
 
   /* ============ 公开接口（后续 Task 追加） ============ */
