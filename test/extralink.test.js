@@ -37,5 +37,10 @@ check('链接位于"延伸学习"区块内', ()=>{
   if(!h || h.textContent.indexOf('延伸学习')<0) throw new Error('所属区块标题不是"延伸学习"');
 });
 
+const sqlLink = home && home.querySelector('a[href*="sqlmother.yupi.icu"]');
+check('首页存在 SQL 在线练习链接', ()=>{ if(!sqlLink) throw new Error('找不到指向 sqlmother.yupi.icu 的链接'); });
+check('SQL 链接新窗口打开 target=_blank', ()=>{ if(!sqlLink || sqlLink.target!=='_blank') throw new Error('target 应为 _blank'); });
+check('SQL 链接含 rel=noopener（安全）', ()=>{ if(!sqlLink || !(sqlLink.rel||'').includes('noopener')) throw new Error('rel 缺少 noopener'); });
+
 console.log(`\n${pass}/${total} 通过`);
 process.exit(pass===total?0:1);
