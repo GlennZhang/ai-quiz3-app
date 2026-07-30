@@ -69,8 +69,42 @@
     return { getProgressStats, getWrongQuestions, getQuestion, searchQuestions };
   }
 
+  /* ============ SSE / delta 累积 ============ */
+  function newAccumulator(){ return { text:'', toolCallsMap:{}, finishReason:null }; }
+  function applyDelta(acc, chunk){
+    const choice = chunk && chunk.choices && chunk.choices[0];
+    if(!choice) return;
+    const d = choice.delta;
+    if(d){
+      if(typeof d.content === 'string') acc.text += d.content;
+      if(Array.isArray(d.tool_calls)){
+        for(const tc of d.tool_calls){
+          const i = tc.index == null ? 0 : tc.index;
+          if(!acc.toolCallsMap[i]) acc.toolCallsMap[i] = { id:('call_'+i), type:'function', function:{ name:'', arguments:'' } };
+          const slot = acc.toolCallsMap[i];
+          if(tc.id) slot.id = tc.id;
+          if(tc.function){
+            if(tc.function.name) slot.function.name += tc.function.name;
+            if(typeof tc.function.arguments === 'string') slot.function.arguments += tc.function.arguments;
+          }
+        }
+      }
+    }
+    if(choice.finish_reason) acc.finishReason = choice.finish_reason;
+  }
+  function finalizeAssistant(acc){
+    const idxs = Object.keys(acc.toolCallsMap).map(Number).sort((a,b)=>a-b);
+    const tool_calls = idxs.map(i=>acc.toolCallsMap[i]);
+    return {
+      role: 'assistant',
+      content: acc.text || null,
+      tool_calls: tool_calls.length ? tool_calls : undefined,
+      finish_reason: acc.finishReason
+    };
+  }
+
   /* ============ 公开接口（后续 Task 追加） ============ */
-  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter };
+  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant };
 
   window.AiTutor = AiTutor;
 
