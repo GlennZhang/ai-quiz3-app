@@ -70,14 +70,14 @@
   }
 
   /* ============ SSE / delta 累积 ============ */
-  function newAccumulator(){ return { text:'', toolCallsMap:{}, finishReason:null }; }
+  function newAccumulator(){ return { text:'', reasoning:'', toolCallsMap:{}, finishReason:null }; }
   function applyDelta(acc, chunk){
     const choice = chunk && chunk.choices && chunk.choices[0];
     if(!choice) return;
     const d = choice.delta;
     if(d){
       if(typeof d.content === 'string') acc.text += d.content;
-      if(typeof d.reasoning_content === 'string') acc.text += d.reasoning_content;
+      if(typeof d.reasoning_content === 'string') acc.reasoning += d.reasoning_content;
       if(Array.isArray(d.tool_calls)){
         for(const tc of d.tool_calls){
           const i = tc.index == null ? 0 : tc.index;
@@ -99,6 +99,7 @@
     return {
       role: 'assistant',
       content: acc.text || null,
+      reasoning: acc.reasoning || undefined,
       tool_calls: tool_calls.length ? tool_calls : undefined,
       finish_reason: acc.finishReason
     };
@@ -186,7 +187,7 @@
             onEvent({ type:'text_delta', text: choice.delta.content });
           }
           if(choice.delta && typeof choice.delta.reasoning_content === 'string' && choice.delta.reasoning_content){
-            onEvent({ type:'text_delta', text: choice.delta.reasoning_content });
+            onEvent({ type:'reasoning_delta', text: choice.delta.reasoning_content });
           }
           applyDelta(acc, chunk);
         }
@@ -270,6 +271,12 @@
 .ait-msg-ai th,.ait-msg-ai td{border:1px solid var(--line,#e6e9f0);padding:4px 8px;text-align:left}
 .ait-msg-ai th{background:var(--pri-bg,#eef1fe)}
 .ait-msg-ai hr{border:none;border-top:1px solid var(--line,#e6e9f0);margin:.6em 0}
+.ait-thinking{margin:0 0 8px;border:1px solid var(--line,#e6e9f0);border-radius:8px;overflow:hidden;background:#fafbfc}
+.ait-thinking-header{padding:4px 10px;font-size:12px;color:var(--sub,#6b7280);cursor:pointer;user-select:none}
+.ait-thinking-body{padding:6px 10px;font-size:12px;color:var(--sub,#6b7280);border-top:1px solid var(--line,#e6e9f0);max-height:260px;overflow-y:auto;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.ait-thinking.ait-hidden{display:none}
+.ait-thinking:not(.ait-thinking-open) .ait-thinking-body{display:none}
+.ait-content{white-space:normal}
 `);
     s.id = 'ait-style';
     document.head.appendChild(s);
@@ -351,7 +358,20 @@
     const messages = loadSession().messages;
     messages.forEach(m=>{
       if(m.role==='user') body.appendChild(el('div','ait-msg ait-msg-user', escapeHtml(m.content)));
-      else if(m.role==='assistant' && m.content) body.appendChild(el('div','ait-msg ait-msg-ai', renderMarkdown(m.content)));
+      else if(m.role==='assistant' && (m.content || m.reasoning)){
+        const bubble = el('div','ait-msg ait-msg-ai','');
+        if(m.reasoning && m.content && m.reasoning !== m.content){
+          const tw = el('div','ait-thinking');
+          const th = el('div','ait-thinking-header','💭 思考过程（点击展开）');
+          const tb = el('div','ait-thinking-body','');
+          tb.textContent = m.reasoning;
+          th.onclick = ()=> tw.classList.toggle('ait-thinking-open');
+          tw.appendChild(th); tw.appendChild(tb); bubble.appendChild(tw);
+        }
+        const mContent = m.content || m.reasoning;
+        if(mContent){ const cd = el('div','ait-content',''); cd.innerHTML = renderMarkdown(mContent); bubble.appendChild(cd); }
+        body.appendChild(bubble);
+      }
       else if(m.role==='tool') body.appendChild(el('div','ait-tool', '🛠 已查询题目数据'));
     });
     body.scrollTop = body.scrollHeight;
@@ -454,26 +474,49 @@
     messages.push({ role:'user', content: text });
     saveSession(messages);
     body.appendChild(el('div','ait-msg ait-msg-user', escapeHtml(text)));
-    const aiBubble = el('div','ait-msg ait-msg-ai', ''); body.appendChild(aiBubble);
+    const aiBubble = el('div','ait-msg ait-msg-ai', '');
+    const thinkingWrap = el('div','ait-thinking ait-hidden');
+    const thinkingHeader = el('div','ait-thinking-header','💭 思考中…');
+    const thinkingBody = el('div','ait-thinking-body','');
+    thinkingHeader.onclick = ()=> thinkingWrap.classList.toggle('ait-thinking-open');
+    thinkingWrap.appendChild(thinkingHeader); thinkingWrap.appendChild(thinkingBody);
+    const contentDiv = el('div','ait-content','');
+    aiBubble.appendChild(thinkingWrap); aiBubble.appendChild(contentDiv);
+    body.appendChild(aiBubble);
     const toolLine = el('div','ait-tool',''); body.appendChild(toolLine);
     body.scrollTop = body.scrollHeight;
 
     document.getElementById('ait-send').textContent = '停止';
     abortCtrl = (typeof AbortController!=='undefined') ? new AbortController() : null;
-    let aiText = '';
+    let aiText = '', reasoningText = '';
     try{
       await runAgentLoop({
         messages, config: cfg, adapter: makeAdapter(data.S, data.Q, data.QMAP),
         signal: abortCtrl && abortCtrl.signal, onEvent: ev=>{
-          if(ev.type==='text_delta'){ aiText += ev.text; aiBubble.textContent = aiText; body.scrollTop = body.scrollHeight; }
+          if(ev.type==='reasoning_delta'){
+            reasoningText += ev.text;
+            thinkingWrap.classList.remove('ait-hidden');
+            thinkingWrap.classList.add('ait-thinking-open');
+            thinkingBody.textContent = reasoningText;
+            body.scrollTop = body.scrollHeight;
+          }
+          else if(ev.type==='text_delta'){
+            aiText += ev.text;
+            if(reasoningText && thinkingHeader.textContent.indexOf('思考中') >= 0){
+              thinkingWrap.classList.remove('ait-thinking-open');
+              thinkingHeader.textContent = '💭 已思考（点击展开）';
+            }
+            contentDiv.textContent = aiText;
+            body.scrollTop = body.scrollHeight;
+          }
           else if(ev.type==='tool_call'){ toolLine.textContent = '🛠 调用 ' + ev.name + '…'; }
           else if(ev.type==='tool_result'){ toolLine.textContent = '🛠 已查询：' + ev.name; }
-          else if(ev.type==='error'){ aiBubble.textContent = '⚠ ' + ev.message; }
-          else if(ev.type==='aborted'){ aiBubble.textContent = (aiText||'') + '\n（已停止）'; }
+          else if(ev.type==='error'){ contentDiv.textContent = '⚠ ' + ev.message; }
+          else if(ev.type==='aborted'){ contentDiv.textContent = (aiText||reasoningText||'') + '\n（已停止）'; }
         }
       });
-      if(aiText && messages[messages.length-1] && messages[messages.length-1].role !== 'assistant'){
-        messages.push({ role:'assistant', content: aiText });
+      if((aiText || reasoningText) && messages[messages.length-1] && messages[messages.length-1].role !== 'assistant'){
+        messages.push({ role:'assistant', content: aiText || null, reasoning: (aiText && reasoningText) ? reasoningText : undefined });
       }
       saveSession(messages);
     }finally{

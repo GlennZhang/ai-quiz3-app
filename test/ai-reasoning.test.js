@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-/* reasoning_content（GLM-4.7 / DeepSeek-R1 等思考模型）处理：
-   模型把内容放 delta.reasoning_content 而 content 为空时，仍应作为文本显示与保存。 */
+/* reasoning_content（GLM-4.7 / DeepSeek-R1 等思考模型）：reasoning 单独走 reasoning_delta 事件，
+   存入 assistant.reasoning；content 为空时 reasoning 仍保留（UI 层兜底为回答）。 */
 const { JSDOM } = require('jsdom');
 const fs = require('fs'), path = require('path');
 const AI_SRC = fs.readFileSync(path.resolve(__dirname,'../ai-tutor.js'),'utf-8');
@@ -29,18 +29,15 @@ function sseOf(events){
   const adapter = A.makeAdapter({wrong:{judge_1:{count:1,streak:0}},right:{},totalAns:1,totalRight:0},Q,QMAP);
   const config = { baseUrl:'https://open.bigmodel.cn/api/paas/v4', apiKey:'sk', model:'glm-4.7' };
 
-  // 模拟 GLM-4.7：reasoning_content 带完整回答，content 全空，最后 finish=stop
-  const queue=[ sseOf([
-    {reasoning:'## 错题薄弱知识点总结\n\n'},
-    {reasoning:'数据处理流程是核心薄弱点。'},
-    {content:''},
-    {content:'', finish:'stop'}
-  ]) ];
+  // GLM-4.7：reasoning 有完整思考、content 为空
+  const queue=[ sseOf([{reasoning:'## 总结\n数据处理流程是薄弱点。'},{content:''},{content:'',finish:'stop'}]) ];
   const evs=[];
-  const out = await A.runAgentLoop({ messages:[{role:'user',content:'总结错题'}], config, adapter, fetchFn: async()=>queue.shift(), onEvent:e=>evs.push(e) });
+  const out = await A.runAgentLoop({ messages:[{role:'user',content:'总结'}], config, adapter, fetchFn: async()=>queue.shift(), onEvent:e=>evs.push(e) });
 
-  ok('reasoning 触发 text_delta', evs.some(e=>e.type==='text_delta' && /总结/.test(e.text)));
-  ok('reasoning 内容进入 assistant.content', /数据处理流程/.test(out[out.length-1].content || ''));
+  ok('reasoning 走 reasoning_delta 事件', evs.some(e=>e.type==='reasoning_delta' && /数据处理/.test(e.text)));
+  ok('reasoning 不混入 text_delta', !evs.some(e=>e.type==='text_delta'));
+  ok('assistant.reasoning 保留思考内容', /数据处理/.test(out[out.length-1].reasoning || ''));
+  ok('content 空时 assistant.content 为 null', out[out.length-1].content === null);
   ok('触发 done', evs.some(e=>e.type==='done'));
 
   console.log('\n'+pass+'/'+(pass+fail)+' 通过');
