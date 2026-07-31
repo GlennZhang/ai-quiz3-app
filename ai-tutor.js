@@ -495,20 +495,13 @@
         signal: abortCtrl && abortCtrl.signal, onEvent: ev=>{
           if(ev.type==='reasoning_delta'){
             reasoningText += ev.text;
-            if(aiText === ''){
-              contentDiv.textContent = reasoningText;
-            } else {
-              thinkingWrap.classList.remove('ait-hidden');
-              thinkingWrap.classList.add('ait-thinking-open');
-              thinkingBody.textContent = reasoningText;
-            }
+            thinkingWrap.classList.remove('ait-hidden');
+            thinkingBody.textContent = reasoningText;
             body.scrollTop = body.scrollHeight;
           }
           else if(ev.type==='text_delta'){
             aiText += ev.text;
-            if(reasoningText){
-              thinkingWrap.classList.remove('ait-hidden');
-              thinkingBody.textContent = reasoningText;
+            if(reasoningText && thinkingHeader.textContent.indexOf('思考中') >= 0){
               thinkingHeader.textContent = '💭 已思考（点击展开）';
             }
             contentDiv.textContent = aiText;
