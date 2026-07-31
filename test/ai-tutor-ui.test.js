@@ -36,6 +36,7 @@ dom.window.addEventListener('load', ()=>{
     ok('配置已持久化', saved.baseUrl === 'https://api.deepseek.com/v1' && saved.apiKey === 'sk-test');
     d.getElementById('ait-cfg-preset-deepseek').click();
     ok('预设 deepseek 填充 baseUrl', d.getElementById('ait-cfg-baseurl').value === 'https://api.deepseek.com/v1');
+    ok('面板样式含 resize(可拖拉)', d.getElementById('ait-style').textContent.indexOf('resize:') >= 0);
     console.log('\n'+pass+'/'+(pass+fail)+' 通过');
     process.exit(fail ? 1 : 0);
   }, 100);

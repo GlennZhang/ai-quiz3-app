@@ -229,7 +229,7 @@
     const s = el('style', null, `
 .ait-fab{position:fixed;right:18px;bottom:18px;z-index:9999;width:54px;height:54px;border-radius:50%;background:var(--pri,#4f6ef7);color:#fff;font-size:24px;display:grid;place-items:center;box-shadow:0 4px 16px rgba(20,30,60,.25);cursor:pointer;border:none}
 .ait-hidden{display:none!important}
-.ait-panel{position:fixed;right:18px;bottom:84px;z-index:9999;width:360px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100vh - 120px);background:var(--card,#fff);border:1px solid var(--line,#e6e9f0);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(20,30,60,.18)}
+.ait-panel{position:fixed;right:18px;bottom:84px;z-index:9999;width:360px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100vh - 120px);background:var(--card,#fff);border:1px solid var(--line,#e6e9f0);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:280px;min-height:320px;box-shadow:0 8px 32px rgba(20,30,60,.18)}
 .ait-panel.ait-big{width:min(760px,calc(100vw-24px));height:min(640px,calc(100vh-120px))}
 .ait-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,#e6e9f0);background:var(--pri-bg,#eef1fe)}
 .ait-head b{font-size:14px;flex:1}
@@ -250,6 +250,20 @@
 .ait-cfg label{font-size:12px;color:var(--sub,#6b7280)}
 .ait-cfg input{width:100%;padding:6px 8px;border:1px solid var(--line,#e6e9f0);border-radius:8px;font:inherit}
 .ait-presets{display:flex;gap:6px;flex-wrap:wrap}
+.ait-msg-ai{white-space:normal}
+.ait-msg-ai p{margin:.4em 0}
+.ait-msg-ai h1,.ait-msg-ai h2,.ait-msg-ai h3,.ait-msg-ai h4,.ait-msg-ai h5,.ait-msg-ai h6{margin:.5em 0 .3em;line-height:1.3}
+.ait-msg-ai h1{font-size:1.3em}.ait-msg-ai h2{font-size:1.15em}.ait-msg-ai h3{font-size:1.05em}.ait-msg-ai h4{font-size:1em}
+.ait-msg-ai ul,.ait-msg-ai ol{margin:.4em 0;padding-left:1.4em}
+.ait-msg-ai li{margin:.15em 0}
+.ait-msg-ai code{background:#f6f8fa;padding:1px 5px;border-radius:4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.9em}
+.ait-msg-ai pre{background:#1f2330;color:#e6e9f0;padding:10px 12px;border-radius:8px;overflow-x:auto;margin:.5em 0}
+.ait-msg-ai pre code{background:none;color:inherit;padding:0;font-size:.88em}
+.ait-msg-ai blockquote{border-left:3px solid var(--line,#e6e9f0);padding:2px 10px;margin:.5em 0;color:var(--sub,#6b7280);background:#fafbfc;border-radius:0 6px 6px 0}
+.ait-msg-ai table{border-collapse:collapse;margin:.5em 0;font-size:.92em;max-width:100%}
+.ait-msg-ai th,.ait-msg-ai td{border:1px solid var(--line,#e6e9f0);padding:4px 8px;text-align:left}
+.ait-msg-ai th{background:var(--pri-bg,#eef1fe)}
+.ait-msg-ai hr{border:none;border-top:1px solid var(--line,#e6e9f0);margin:.6em 0}
 `);
     s.id = 'ait-style';
     document.head.appendChild(s);
@@ -325,12 +339,93 @@
     const messages = loadSession().messages;
     messages.forEach(m=>{
       if(m.role==='user') body.appendChild(el('div','ait-msg ait-msg-user', escapeHtml(m.content)));
-      else if(m.role==='assistant' && m.content) body.appendChild(el('div','ait-msg ait-msg-ai', escapeHtml(m.content)));
+      else if(m.role==='assistant' && m.content) body.appendChild(el('div','ait-msg ait-msg-ai', renderMarkdown(m.content)));
       else if(m.role==='tool') body.appendChild(el('div','ait-tool', '🛠 已查询题目数据'));
     });
     body.scrollTop = body.scrollHeight;
   }
   function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function renderMarkdown(md){
+    let h = escapeHtml(md == null ? '' : String(md));
+    // 代码块占位（保护内部不被块级/行内规则处理）
+    const codeBlocks = [];
+    h = h.replace(/```[^\n]*\n?([\s\S]*?)```/g, (m, code)=>{
+      codeBlocks.push('<pre><code>' + code.replace(/\n$/, '') + '</code></pre>');
+      return ' CB' + (codeBlocks.length - 1) + ' ';
+    });
+    // 行内代码占位
+    const inlineCodes = [];
+    h = h.replace(/`([^`\n]+)`/g, (m, code)=>{
+      inlineCodes.push('<code>' + code + '</code>');
+      return ' IC' + (inlineCodes.length - 1) + ' ';
+    });
+    const splitCell = r => r.trim().replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map(s => s.trim());
+    const isTableRow = s => s.indexOf('|') >= 0 && s.trim() !== '';
+    const isTableSep = s => /^\s*\|?[\s:|-]*-[\s:|-]*$/.test(s) && s.indexOf('-') >= 0 && s.indexOf('|') >= 0;
+    const lines = h.split('\n');
+    const out = [];
+    let i = 0;
+    while(i < lines.length){
+      const line = lines[i];
+      const trimmed = line.trim();
+      if(/^ CB\d+ $/.test(trimmed)){ out.push(trimmed); i++; continue; }
+      let m;
+      if((m = trimmed.match(/^(#{1,6})\s+(.*)$/))){ out.push('<h' + m[1].length + '>' + m[2] + '</h' + m[1].length + '>'); i++; continue; }
+      if(/^\s*([-*_])\1{2,}\s*$/.test(line)){ out.push('<hr>'); i++; continue; }
+      // 表格：表头(含|) + 下一行分隔(含-和|)
+      if(isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])){
+        const headerCells = splitCell(line);
+        i += 2;
+        let t = '<table><thead><tr>' + headerCells.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+        while(i < lines.length && isTableRow(lines[i]) && !/^(#{1,6})\s/.test(lines[i]) && !/^\s*[-*+]\s/.test(lines[i]) && !/^>\s?/.test(lines[i])){
+          t += '<tr>' + splitCell(lines[i]).map(c => '<td>' + c + '</td>').join('') + '</tr>'; i++;
+        }
+        t += '</tbody></table>';
+        out.push(t);
+        continue;
+      }
+      if((m = line.match(/^&gt;\s?(.*)$/))){
+        const buf = [m[1]]; i++;
+        while(i < lines.length && (m = lines[i].match(/^&gt;\s?(.*)$/))){ buf.push(m[1]); i++; }
+        out.push('<blockquote>' + buf.join('<br>') + '</blockquote>');
+        continue;
+      }
+      if((m = line.match(/^\s*[-*+]\s+(.*)$/))){
+        const items = [m[1]]; i++;
+        while(i < lines.length && (m = lines[i].match(/^\s*[-*+]\s+(.*)$/))){ items.push(m[1]); i++; }
+        out.push('<ul>' + items.map(it => '<li>' + it + '</li>').join('') + '</ul>');
+        continue;
+      }
+      if((m = line.match(/^\s*\d+\.\s+(.*)$/))){
+        const items = [m[1]]; i++;
+        while(i < lines.length && (m = lines[i].match(/^\s*\d+\.\s+(.*)$/))){ items.push(m[1]); i++; }
+        out.push('<ol>' + items.map(it => '<li>' + it + '</li>').join('') + '</ol>');
+        continue;
+      }
+      if(trimmed === ''){ i++; continue; }
+      // 段落：连续非空非块级行
+      const para = [line]; i++;
+      while(i < lines.length && lines[i].trim() !== ''
+        && !/^ CB\d+ $/.test(lines[i].trim())
+        && !/^(#{1,6})\s/.test(lines[i])
+        && !/^\s*([-*_])\1{2,}\s*$/.test(lines[i])
+        && !/^&gt;\s?/.test(lines[i])
+        && !/^\s*[-*+]\s/.test(lines[i])
+        && !/^\s*\d+\.\s/.test(lines[i])
+        && !(isTableRow(lines[i]) && i + 1 < lines.length && isTableSep(lines[i + 1]))){
+        para.push(lines[i]); i++;
+      }
+      out.push('<p>' + para.join('<br>') + '</p>');
+    }
+    let result = out.join('');
+    // 行内：粗体、斜体（在已转义的文本上操作）
+    result = result.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    result = result.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>');
+    // 还原代码占位
+    result = result.replace(/ CB(\d+) /g, (mm, n) => codeBlocks[+n] || '');
+    result = result.replace(/ IC(\d+) /g, (mm, n) => inlineCodes[+n] || '');
+    return result;
+  }
   async function send(){
     const body = document.getElementById('ait-body');
     const cfg = getConfig();
@@ -380,7 +475,7 @@
   }, true);
 
   /* ============ 公开接口（后续 Task 追加） ============ */
-  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat, TOOLS, dispatchTool, runAgentLoop };
+  const AiTutor = { getConfig, saveConfig, PRESETS, loadSession, saveSession, clearSession, makeAdapter, newAccumulator, applyDelta, finalizeAssistant, streamChat, TOOLS, dispatchTool, runAgentLoop, renderMarkdown };
 
   window.AiTutor = AiTutor;
 
