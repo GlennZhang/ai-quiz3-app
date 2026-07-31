@@ -77,6 +77,7 @@
     const d = choice.delta;
     if(d){
       if(typeof d.content === 'string') acc.text += d.content;
+      if(typeof d.reasoning_content === 'string') acc.text += d.reasoning_content;
       if(Array.isArray(d.tool_calls)){
         for(const tc of d.tool_calls){
           const i = tc.index == null ? 0 : tc.index;
@@ -183,6 +184,9 @@
           if(!choice) continue;
           if(choice.delta && typeof choice.delta.content === 'string' && choice.delta.content){
             onEvent({ type:'text_delta', text: choice.delta.content });
+          }
+          if(choice.delta && typeof choice.delta.reasoning_content === 'string' && choice.delta.reasoning_content){
+            onEvent({ type:'text_delta', text: choice.delta.reasoning_content });
           }
           applyDelta(acc, chunk);
         }
