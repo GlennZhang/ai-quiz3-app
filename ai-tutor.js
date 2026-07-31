@@ -229,7 +229,7 @@
     const s = el('style', null, `
 .ait-fab{position:fixed;right:18px;bottom:18px;z-index:9999;width:54px;height:54px;border-radius:50%;background:var(--pri,#4f6ef7);color:#fff;font-size:24px;display:grid;place-items:center;box-shadow:0 4px 16px rgba(20,30,60,.25);cursor:pointer;border:none}
 .ait-hidden{display:none!important}
-.ait-panel{position:fixed;right:18px;bottom:84px;z-index:9999;width:360px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100vh - 120px);background:var(--card,#fff);border:1px solid var(--line,#e6e9f0);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;resize:both;min-width:280px;min-height:320px;box-shadow:0 8px 32px rgba(20,30,60,.18)}
+.ait-panel{position:fixed;right:18px;bottom:84px;z-index:9999;width:360px;max-width:calc(100vw - 24px);height:480px;max-height:calc(100vh - 120px);background:var(--card,#fff);border:1px solid var(--line,#e6e9f0);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;min-width:280px;min-height:320px;box-shadow:0 8px 32px rgba(20,30,60,.18)}
 .ait-panel.ait-big{width:min(760px,calc(100vw-24px));height:min(640px,calc(100vh-120px))}
 .ait-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line,#e6e9f0);background:var(--pri-bg,#eef1fe)}
 .ait-head b{font-size:14px;flex:1}
@@ -240,6 +240,8 @@
 .ait-msg-ai{align-self:flex-start;background:#fff;border:1px solid var(--line,#e6e9f0)}
 .ait-msg-system{align-self:center;background:var(--warn-bg,#fdf3e2);color:var(--warn,#d97706);font-size:12px}
 .ait-tool{align-self:flex-start;font-size:12px;color:var(--sub,#6b7280);font-style:italic}
+.ait-resizer{position:absolute;left:0;top:0;width:18px;height:18px;cursor:nwse-resize;z-index:6;background:linear-gradient(135deg,transparent 42%,var(--sub,#6b7280) 42%,var(--sub,#6b7280) 58%,transparent 58%);opacity:.4}
+.ait-resizer:hover{opacity:.9}
 .ait-foot{border-top:1px solid var(--line,#e6e9f0);padding:8px}
 .ait-quick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .ait-quick button{font-size:12px;padding:4px 10px;border-radius:999px;background:var(--pri-bg,#eef1fe);color:var(--pri,#4f6ef7);border:1px solid var(--line,#e6e9f0);cursor:pointer}
@@ -315,6 +317,12 @@
     foot.appendChild(quick); foot.appendChild(row);
 
     panel.appendChild(head); panel.appendChild(cfg); panel.appendChild(body); panel.appendChild(foot);
+    const resizer = el('div', 'ait-resizer');
+    panel.appendChild(resizer);
+    let resizing = null;
+    resizer.addEventListener('mousedown', (e)=>{ e.preventDefault(); e.stopPropagation(); resizing = { x:e.clientX, y:e.clientY, w:panel.offsetWidth, h:panel.offsetHeight }; });
+    window.addEventListener('mousemove', (e)=>{ if(!resizing) return; panel.style.width = Math.max(280, resizing.w - (e.clientX - resizing.x)) + 'px'; panel.style.height = Math.max(320, resizing.h - (e.clientY - resizing.y)) + 'px'; });
+    window.addEventListener('mouseup', ()=>{ resizing = null; });
     document.body.appendChild(fab); document.body.appendChild(panel);
 
     fab.onclick = ()=> panel.classList.toggle('ait-hidden');
