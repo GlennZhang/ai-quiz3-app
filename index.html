@@ -468,7 +468,7 @@ try{Object.assign(cfg,JSON.parse(localStorage.getItem('aitrainer_cfg')||'{}'))}c
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>e.classList.remove('show'),1400)}
 
 /* ---------- routing ---------- */
-const views=['home','quiz','wrong','browse'];
+const views=['home','quiz','wrong','browse','exam','exam-report','exam-history'];
 function show(name){
   views.forEach(v=>document.getElementById('view-'+v).classList.toggle('active',v===name));
   const tb=document.getElementById('topbar');
